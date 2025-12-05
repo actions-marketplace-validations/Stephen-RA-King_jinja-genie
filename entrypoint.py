@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import os
+import subprocess
 
 from main import Genie
 
 
-def main():
-    env_variables = os.environ
-
+def main(env_variables):
     genie = Genie(os.environ)
     genie.use_env_variables()
 
@@ -23,4 +22,13 @@ def main():
 
 
 if __name__ == "__main__":
-    SystemExit(main())
+    environ_variables = os.environ
+
+    requires = environ_variables["INPUT_REQUIRES"]
+    if requires != "":
+        for req in requires.split("\n"):
+            clean_req = bytes(req.strip(), "utf-8").decode("unicode_escape")
+            if clean_req != "":
+                subprocess.run(["pip", "install", "--no-cache-dir", clean_req])
+
+    SystemExit(main(environ_variables))

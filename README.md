@@ -24,6 +24,8 @@ _**Use dynamic templating to keep your templates up to date with any external so
         - [3. yaml](#3-yaml)
         - [4. json](#4-json)
     -   [Using a script to template using dynamic variables](#using-a-script-to-template-using-dynamic-variables)
+        - [Scheduling scripts with cron](#scheduling-scripts-with-cron)
+        - [Specifying python requirements for the script](#specifying-python-requirements-for-the-script)
     -   [Protecting a target file](#protecting-a-target-file)
     -   [Using 'Strict' mode](#using-strict-mode)
     -   [Using multiple templating jobs or steps](#using-multiple-templating-jobs-or-steps)
@@ -70,7 +72,7 @@ jobs:
   template:
     runs-on: ubuntu-latest
       - name: Jinja templating with environment variables
-        uses: stephen-ra-king/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         with:
           template: config.conf.j2
           target: config.conf
@@ -102,6 +104,7 @@ running.  None of the GitHub action that I searched for provided for this scenar
 | dynamic_script | Path, filename of a script that retrieves dynamic data | False    | "" |
 | env | Key, value pairs in yaml format (key: value) | False    | "" |
 | protect        | Turns protection from accidental overwrite for a target on | False    | "" |
+| requires | A list of python requirements for the dynamic_script (if any) | False | "" |
 | template       | Path , filename for the template file that will be rendered with data | **True** | "" |
 | target | Target for the rendered template | **True** | "" |
 | variables | Key, value pairs in .env file format (key=value) | False    | "" |
@@ -137,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Jinja templating with environment variables
-        uses: Stephen-RA-King/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         with:
           template: templates/env_variables.txt.j2
           target: targets/env_variables.txt
@@ -156,7 +159,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Jinja templating using variables
-        uses: Stephen-RA-King/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         with:
           template: templates/variables.txt.j2
           target: targets/variables.txt
@@ -193,7 +196,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Jinja templating with data file - ini
-        uses: Stephen-RA-King/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         with:
           template: templates/ini_template_file
           target: targets/ini_target_file
@@ -213,7 +216,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Jinja templating using dynamic script
-        uses: Stephen-RA-King/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         with:
           template: templates/counter.txt
           target: targets/counter.txt
@@ -223,13 +226,13 @@ jobs:
 ### Data source file types
 Values to use in the workflow file
 
-| File Type                                                       | workflow value to use |
-|-----------------------------------------------------------------|-----------------------|
-| [Dotenv](https://hexdocs.pm/dotenvy/0.2.0/dotenv-file-format.html)                                                 | env |
-| [Tom's Obvious, Minimal Language](https://toml.io/en/)          | toml |
-| [YAML Ain't Markup Language](https://yaml.org/spec/1.2.2/)      | yaml or yml |
-| [Initialization](https://en.wikipedia.org/wiki/INI_file)   | ini |
-| [JavaScript Object Notation](https://www.json.org/json-en.html) | json |
+| File Type                                                              | workflow value to use |
+|------------------------------------------------------------------------|-----------------------|
+| [**Dotenv**](https://hexdocs.pm/dotenvy/0.2.0/dotenv-file-format.html) | env |
+| [**Tom's Obvious, Minimal Language**](https://toml.io/en/)             | toml |
+| [**YAML Ain't Markup Language**](https://yaml.org/spec/1.2.2/)         | yaml or yml |
+| [**Initialization**](https://en.wikipedia.org/wiki/INI_file)           | ini |
+| [**JavaScript Object Notation**](https://www.json.org/json-en.html)    | json |
 
 
 #### 1. Dotenv
@@ -289,7 +292,7 @@ For obvious reasons I cannot write these scripts for you.
 However it must follow a pattern and contain certain structures:
 
 e.g.
-dynamic_script.py
+dynamic_script.py.   You can use this as a template (pun intended)
 ```python
 #!/usr/bin/env python3
 
@@ -317,10 +320,53 @@ def main():
 if __name__ == "__main__":
     SystemExit(main())
 ```
-Essentially you get as many variables as you like, with whatever methods you like.
+This will produce the following 'env' file:
+
+dynamic_script.env
+```file
+KEY1=value1
+KEY2=value2
+```
+
+Essentially you can get as many variables as you like, with whatever methods you like.
 
 The bottom line is that it must create an 'env' file with the same name
 as the script (in the same location) except with an 'env' extension and thats it.
+
+#### Scheduling scripts with cron
+The ideal way of scheduling a script is with cron. This is very similar to the crontab scheduling system in Unix-like operating systems.
+see [GitHub workflow schedule](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule).
+
+This can be setup using an entry similar to the following in your workflow file:
+
+```file
+on:
+  schedule:
+    - cron: '30 5 * * 1,3'
+```
+You can test your schedules with various online resources:
+
+- [crontab guru](https://crontab.guru/)
+- [cron maker](http://www.cronmaker.com/;jsessionid=node0vlevqvq6v75w1unvqjq07bjn2702230.node0?0)
+- [cron expression generator](https://www.freeformatter.com/cron-expression-generator-quartz.html)
+
+#### Specifying python requirements for the script
+If you are using 3rd party modules in your scripts then you can use the 'requires' input keyword.
+
+It is advisable to pin your requirements as in the following example.
+```file
+      - name: Template readme file
+        uses: stephen-ra-king/jinja-genie@1.1
+        if: always()
+        with:
+          template: templates/README.md.j2
+          target: README.md
+          protect: true
+          requires: |
+            beautifulsoup4==4.12.2
+            requests==2.31.0
+          dynamic_script: templater.py
+```
 
 ### Protecting a target file
 Obviously with templating you are accepting the fact that the target will be overwritten each time the template is rendered.
@@ -334,7 +380,7 @@ jobs:
   template:
     runs-on: ubuntu-latest
       - name: Jinja templating with environment variables
-        uses: stephen-ra-king/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         with:
           template: config.conf.j2
           target: config.conf
@@ -349,8 +395,7 @@ If the action determines that the target has been altered since the last templat
 similar to the following in the action run log:
 
 ```file
-***** WARNING: Target file has been altered since last templating.
-It is advisable to update the template *****
+ValueError: Target file has been updated since last templating
 ```
 
 This will give you a chance to revise your work workflow.
@@ -375,7 +420,7 @@ jobs:
   template:
     runs-on: ubuntu-latest
       - name: Jinja templating with environment variables
-        uses: stephen-ra-king/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         with:
           template: config.conf.j2
           target: config.conf
@@ -420,7 +465,7 @@ jobs:
         run: git pull origin main
 
       - name: Jinja templating using dynamic script
-        uses: Stephen-RA-King/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         if: always()
         with:
           template: templates/counter.txt
@@ -428,7 +473,7 @@ jobs:
           dynamic_script: templater.py
 
       - name: Jinja templating using variables
-        uses: Stephen-RA-King/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         if: always()
         with:
           template: templates/variables.txt.j2
@@ -439,7 +484,7 @@ jobs:
             timeout=45
 
       - name: Jinja templating with environment variables
-        uses: Stephen-RA-King/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         if: always()
         with:
           template: templates/env_variables.txt.j2
@@ -449,7 +494,7 @@ jobs:
           TIMEOUT: 90
 
       - name: Jinja templating with data file - ini
-        uses: Stephen-RA-King/jinja-genie@v1
+        uses: stephen-ra-king/jinja-genie@v1.1
         if: always()
         with:
           template: templates/ini_template_file
@@ -472,12 +517,22 @@ jobs:
 ---
 Q. Can I use any other language apart from Python to get 'dynamic' variables?
 
-A. No
+A. No.  This would be way to complicated for the docker container.
+
+Q. Does the target file need to exist before template rendering.
+
+A. No. The target will be created by the Jinja engine.  The containing directory must exist though.  Git generally ignores empty directories though.
+You can create empty directories and use a ',gitkeep' file inside these.
+
+Q. Can I use multiple templates / targets for a single step.
+
+A. No. You can use multiple variables per step with a single template / target but you can only use a single template / target pair.
+This may change in subsequent releases. I have already have several ideas on how to implement this.
 
 
 ## 📰 What's new in the next version 
 
-- Undecided yet
+- to be decided
 
 
 ## 📜 License
@@ -490,7 +545,7 @@ Distributed under the MIT license.
 
 ---
 [![](assets/linkedin.png)](https://www.linkedin.com/in/sr-king)
-[![](assets/github.png)](https://github.com/Stephen-RA-King)
+[![](assets/github.png)](https://github.com/stephen-ra-king)
 [![](assets/www.png)](https://stephen-ra-king.github.io/justpython/)
 [![](assets/email2.png)](mailto:sking.github@gmail.com)
 
@@ -505,12 +560,12 @@ Author: Stephen R A King ([sking.github@gmail.com](mailto:sking.github@gmail.com
 [bandit-url]: https://github.com/PyCQA/bandit
 [black-image]: https://img.shields.io/badge/code%20style-black-000000.svg
 [black-url]: https://github.com/psf/black
-[codeql-image]: https://github.com/Stephen-RA-King/templatetest/actions/workflows/github-code-scanning/codeql/badge.svg
-[codeql-url]: https://github.com/Stephen-RA-King/templatetest/actions/workflows/github-code-scanning/codeql
+[codeql-image]: https://github.com/stephen-ra-king/templatetest/actions/workflows/github-code-scanning/codeql/badge.svg
+[codeql-url]: https://github.com/stephen-ra-king/templatetest/actions/workflows/github-code-scanning/codeql
 [isort-image]: https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336
 [isort-url]: https://github.com/pycqa/isort/
 [license-image]: https://img.shields.io/pypi/l/templatetest
-[license-url]: https://github.com/Stephen-RA-King/templatetest/blob/main/LICENSE
+[license-url]: https://github.com/stephen-ra-king/templatetest/blob/main/LICENSE
 [mypy-image]: http://www.mypy-lang.org/static/mypy_badge.svg
 [mypy-url]: http://mypy-lang.org/
-[wiki]: https://github.com/Stephen-RA-King/templatetest/wiki
+[wiki]: https://github.com/stephen-ra-king/templatetest/wiki
