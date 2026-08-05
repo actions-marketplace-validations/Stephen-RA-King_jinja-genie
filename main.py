@@ -11,7 +11,6 @@ from contextlib import suppress
 from pathlib import Path
 
 import yaml
-from j2cli.context import read_context_data
 from jinja2 import StrictUndefined
 from jinja2 import Template
 
@@ -20,6 +19,30 @@ class Config:
     """Configuration class"""
 
     hash_db = "jinja-genie.pkl"
+
+
+def read_context_data(data_type: str, file, _) -> dict:
+    """Parse a data file into a dictionary based on its format."""
+    content = file.read()
+    if data_type == "json":
+        return json.loads(content)
+    elif data_type in ("yaml", "yml"):
+        return yaml.safe_load(content) or {}
+    elif data_type == "ini":
+        parser = configparser.ConfigParser()
+        parser.read_string(content)
+        return {s: dict(parser.items(s)) for s in parser.sections()}
+    elif data_type == "env":
+        result = {}
+        for line in content.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                result[key.strip()] = value.strip()
+        return result
+    elif data_type == "toml":
+        return tomllib.loads(content)
+    return {}
 
 
 class Genie:
@@ -143,7 +166,7 @@ class Genie:
             with open(env_file) as file:
                 contents = read_context_data("env", file, None)
                 self._var_dict.update(contents)
-                os.remove(env_file)
+            os.remove(env_file)
 
     def use_env_variables(self) -> None:
         """Add os environ variables to a dictionary"""
